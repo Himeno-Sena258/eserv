@@ -137,7 +137,7 @@ class OrderServiceTests {
 
     private String obtainToken() throws Exception {
         String json = "{\"adminKey\":\"" + ADMIN_KEY + "\"}";
-        String response = mockMvc.perform(post("/api/auth/login")
+        String response = mockMvc.perform(post("/api/login/admin")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())

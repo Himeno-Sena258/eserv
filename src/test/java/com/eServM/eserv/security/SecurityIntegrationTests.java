@@ -72,7 +72,7 @@ class SecurityIntegrationTests {
 
     private String obtainToken(String adminKey) throws Exception {
         String json = "{\"adminKey\":\"" + adminKey + "\"}";
-        String response = mockMvc.perform(post("/api/auth/login")
+        String response = mockMvc.perform(post("/api/login/admin")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
