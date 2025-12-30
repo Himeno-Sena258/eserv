@@ -2,7 +2,6 @@ package com.eServM.eserv.api;
 
 import com.eServM.eserv.dto.CustomerRequest;
 import com.eServM.eserv.dto.CustomerResponse;
-import com.eServM.eserv.security.AdminKeyFilter;
 import com.eServM.eserv.repository.CustomerRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +22,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "spring.datasource.url=jdbc:sqlite:target/test-customers.db")
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:sqlite:target/test-customers.db",
+        "jwt.secret=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=",
+        "jwt.exp.minutes=60"
+})
 class CustomerApiTests {
 
     private static final String ADMIN_KEY = "ADMIN-KEY-1-20251230";
@@ -44,10 +47,11 @@ class CustomerApiTests {
 
     @Test
     void createAndReadCustomer() throws Exception {
-        CustomerResponse created = createCustomer("客户A", "电话");
+        String token = obtainToken();
+        CustomerResponse created = createCustomer(token, "客户A", "电话");
 
         String json = mockMvc.perform(get("/api/customers/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -58,10 +62,11 @@ class CustomerApiTests {
 
     @Test
     void updateCustomer() throws Exception {
-        CustomerResponse created = createCustomer("客户B", "微信");
+        String token = obtainToken();
+        CustomerResponse created = createCustomer(token, "客户B", "微信");
 
         String json = mockMvc.perform(put("/api/customers/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new CustomerRequest("客户B-更新", "邮箱"))))
                 .andExpect(status().isOk())
@@ -74,14 +79,15 @@ class CustomerApiTests {
 
     @Test
     void deleteCustomer() throws Exception {
-        CustomerResponse created = createCustomer("客户C", "短信");
+        String token = obtainToken();
+        CustomerResponse created = createCustomer(token, "客户C", "短信");
 
         mockMvc.perform(delete("/api/customers/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/customers/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
 
@@ -91,13 +97,25 @@ class CustomerApiTests {
                 .andExpect(status().isUnauthorized());
     }
 
-    private CustomerResponse createCustomer(String name, String contact) throws Exception {
+    private CustomerResponse createCustomer(String token, String name, String contact) throws Exception {
         String json = mockMvc.perform(post("/api/customers")
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new CustomerRequest(name, contact))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readValue(json, CustomerResponse.class);
+    }
+
+    private String obtainToken() throws Exception {
+        String json = "{\"adminKey\":\"" + ADMIN_KEY + "\"}";
+        String response = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int start = response.indexOf(":\"") + 2;
+        int end = response.lastIndexOf("\"");
+        return response.substring(start, end);
     }
 }

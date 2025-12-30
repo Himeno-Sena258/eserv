@@ -6,7 +6,6 @@ import com.eServM.eserv.dto.OrderRequest;
 import com.eServM.eserv.dto.OrderResponse;
 import com.eServM.eserv.repository.CustomerOrderRepository;
 import com.eServM.eserv.repository.CustomerRepository;
-import com.eServM.eserv.security.AdminKeyFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +26,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "spring.datasource.url=jdbc:sqlite:target/test-orders.db")
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:sqlite:target/test-orders.db",
+        "jwt.secret=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=",
+        "jwt.exp.minutes=60"
+})
 class OrderServiceTests {
 
     private static final String ADMIN_KEY = "ADMIN-KEY-1-20251230";
@@ -50,8 +53,9 @@ class OrderServiceTests {
     void setup() throws Exception {
         customerOrderRepository.deleteAll();
         customerRepository.deleteAll();
+        String token = obtainToken();
         String response = mockMvc.perform(post("/api/customers")
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new CustomerRequest("测试客户", "电话联系"))))
                 .andExpect(status().isCreated())
@@ -61,10 +65,11 @@ class OrderServiceTests {
 
     @Test
     void createAndFetchOrder() throws Exception {
-        OrderResponse created = createOrder("首单", "商品A", OffsetDateTime.now());
+        String token = obtainToken();
+        OrderResponse created = createOrder(token, "首单", "商品A", OffsetDateTime.now());
 
         String json = mockMvc.perform(get("/api/orders/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -76,10 +81,11 @@ class OrderServiceTests {
 
     @Test
     void updateOrder() throws Exception {
-        OrderResponse created = createOrder("旧简介", "旧商品", OffsetDateTime.now());
+        String token = obtainToken();
+        OrderResponse created = createOrder(token, "旧简介", "旧商品", OffsetDateTime.now());
 
         String json = mockMvc.perform(put("/api/orders/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new OrderRequest(
                         "新简介",
@@ -97,14 +103,15 @@ class OrderServiceTests {
 
     @Test
     void deleteOrder() throws Exception {
-        OrderResponse created = createOrder("删除测试", "商品C", OffsetDateTime.now());
+        String token = obtainToken();
+        OrderResponse created = createOrder(token, "删除测试", "商品C", OffsetDateTime.now());
 
         mockMvc.perform(delete("/api/orders/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/orders/" + created.uid())
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY))
+                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
 
@@ -114,9 +121,9 @@ class OrderServiceTests {
                 .andExpect(status().isUnauthorized());
     }
 
-    private OrderResponse createOrder(String summary, String product, OffsetDateTime orderTime) throws Exception {
+    private OrderResponse createOrder(String token, String summary, String product, OffsetDateTime orderTime) throws Exception {
         String json = mockMvc.perform(post("/api/orders")
-                .header(AdminKeyFilter.ADMIN_KEY_HEADER, ADMIN_KEY)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new OrderRequest(
                         summary,
@@ -126,5 +133,17 @@ class OrderServiceTests {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readValue(json, OrderResponse.class);
+    }
+
+    private String obtainToken() throws Exception {
+        String json = "{\"adminKey\":\"" + ADMIN_KEY + "\"}";
+        String response = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int start = response.indexOf(":\"") + 2;
+        int end = response.lastIndexOf("\"");
+        return response.substring(start, end);
     }
 }
