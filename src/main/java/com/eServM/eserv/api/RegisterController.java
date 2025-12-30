@@ -25,6 +25,9 @@ public class RegisterController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         UserResponse resp = userService.register(request.username.trim(), request.password);
+        if (resp == null) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 

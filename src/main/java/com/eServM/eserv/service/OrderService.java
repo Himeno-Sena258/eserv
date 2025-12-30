@@ -3,6 +3,7 @@ package com.eServM.eserv.service;
 import com.eServM.eserv.dto.OrderRequest;
 import com.eServM.eserv.dto.OrderResponse;
 import com.eServM.eserv.exception.BadRequestException;
+import com.eServM.eserv.exception.ForbiddenException;
 import com.eServM.eserv.exception.ResourceNotFoundException;
 import com.eServM.eserv.model.Customer;
 import com.eServM.eserv.model.CustomerOrder;
@@ -25,8 +26,14 @@ public class OrderService {
         this.customerService = customerService;
     }
 
-    public OrderResponse create(OrderRequest request) {
+    public OrderResponse create(String role, String username, OrderRequest request) {
         Customer customer = customerService.fetchCustomer(request.customerUid());
+        if (!"admin".equals(role)) {
+            if (customer.getUser() == null || customer.getUser().getUsername() == null
+                    || !customer.getUser().getUsername().equals(username)) {
+                throw new ForbiddenException("仅可为自己的客户创建订单");
+            }
+        }
         CustomerOrder order = new CustomerOrder();
         order.setSummary(request.summary());
         order.setProductName(request.productName());
@@ -36,18 +43,37 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderResponse> findAll() {
-        return customerOrderRepository.findAll().stream().map(this::toResponse).toList();
+    public List<OrderResponse> findAll(String role, String username) {
+        if ("admin".equals(role)) {
+            return customerOrderRepository.findAll().stream().map(this::toResponse).toList();
+        }
+        return customerOrderRepository.findByCustomerUserUsername(username).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public OrderResponse findByUid(String uid) {
-        return toResponse(fetchOrder(uid));
+    public OrderResponse findByUid(String role, String username, String uid) {
+        CustomerOrder order = fetchOrder(uid);
+        if (!"admin".equals(role)) {
+            if (order.getCustomer() == null || order.getCustomer().getUser() == null
+                    || order.getCustomer().getUser().getUsername() == null
+                    || !order.getCustomer().getUser().getUsername().equals(username)) {
+                throw new ForbiddenException("无权访问该订单");
+            }
+        }
+        return toResponse(order);
     }
 
-    public OrderResponse update(String uid, OrderRequest request) {
+    public OrderResponse update(String role, String username, String uid, OrderRequest request) {
         CustomerOrder order = fetchOrder(uid);
         Customer customer = customerService.fetchCustomer(request.customerUid());
+        if (!"admin".equals(role)) {
+            String ownerOfExisting = order.getCustomer() != null && order.getCustomer().getUser() != null
+                    ? order.getCustomer().getUser().getUsername() : null;
+            String ownerOfTarget = customer.getUser() != null ? customer.getUser().getUsername() : null;
+            if (!username.equals(ownerOfExisting) || !username.equals(ownerOfTarget)) {
+                throw new ForbiddenException("仅可修改属于自己的订单");
+            }
+        }
         order.setSummary(request.summary());
         order.setProductName(request.productName());
         order.setCustomer(customer);
@@ -55,8 +81,15 @@ public class OrderService {
         return toResponse(customerOrderRepository.save(order));
     }
 
-    public void delete(String uid) {
+    public void delete(String role, String username, String uid) {
         CustomerOrder order = fetchOrder(uid);
+        if (!"admin".equals(role)) {
+            String ownerOfExisting = order.getCustomer() != null && order.getCustomer().getUser() != null
+                    ? order.getCustomer().getUser().getUsername() : null;
+            if (!username.equals(ownerOfExisting)) {
+                throw new ForbiddenException("仅可删除属于自己的订单");
+            }
+        }
         customerOrderRepository.delete(order);
     }
 

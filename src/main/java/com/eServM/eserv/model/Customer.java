@@ -2,6 +2,9 @@ package com.eServM.eserv.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,6 +27,10 @@ public class Customer {
 
     @Column(name = "contact_method")
     private String contactMethod;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -57,6 +64,14 @@ public class Customer {
 
     public void setContactMethod(String contactMethod) {
         this.contactMethod = contactMethod;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public OffsetDateTime getCreatedAt() {

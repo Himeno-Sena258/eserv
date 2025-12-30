@@ -3,6 +3,7 @@ package com.eServM.eserv.service;
 import com.eServM.eserv.dto.CustomerRequest;
 import com.eServM.eserv.dto.CustomerResponse;
 import com.eServM.eserv.exception.BadRequestException;
+import com.eServM.eserv.exception.ForbiddenException;
 import com.eServM.eserv.exception.ResourceNotFoundException;
 import com.eServM.eserv.model.Customer;
 import com.eServM.eserv.repository.CustomerRepository;
@@ -21,7 +22,10 @@ public class CustomerService {
         this.customerRepository = customerRepository;
     }
 
-    public CustomerResponse create(CustomerRequest request) {
+    public CustomerResponse create(String role, String username, CustomerRequest request) {
+        if (!"admin".equals(role)) {
+            throw new ForbiddenException("仅管理员可创建客户");
+        }
         Customer customer = new Customer();
         customer.setName(request.name());
         customer.setContactMethod(request.contactMethod());
@@ -29,23 +33,41 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public List<CustomerResponse> findAll() {
-        return customerRepository.findAll().stream().map(this::toResponse).toList();
+    public List<CustomerResponse> findAll(String role, String username) {
+        if ("admin".equals(role)) {
+            return customerRepository.findAll().stream().map(this::toResponse).toList();
+        }
+        return customerRepository.findByUserUsername(username)
+                .map(c -> List.of(toResponse(c)))
+                .orElseGet(List::of);
     }
 
     @Transactional(readOnly = true)
-    public CustomerResponse findByUid(String uid) {
-        return toResponse(fetchCustomer(uid));
+    public CustomerResponse findByUid(String role, String username, String uid) {
+        Customer customer = fetchCustomer(uid);
+        if (!"admin".equals(role)) {
+            if (customer.getUser() == null || customer.getUser().getUsername() == null
+                    || !customer.getUser().getUsername().equals(username)) {
+                throw new ForbiddenException("无权访问该客户");
+            }
+        }
+        return toResponse(customer);
     }
 
-    public CustomerResponse update(String uid, CustomerRequest request) {
+    public CustomerResponse update(String role, String username, String uid, CustomerRequest request) {
+        if (!"admin".equals(role)) {
+            throw new ForbiddenException("仅管理员可修改客户");
+        }
         Customer customer = fetchCustomer(uid);
         customer.setName(request.name());
         customer.setContactMethod(request.contactMethod());
         return toResponse(customerRepository.save(customer));
     }
 
-    public void delete(String uid) {
+    public void delete(String role, String username, String uid) {
+        if (!"admin".equals(role)) {
+            throw new ForbiddenException("仅管理员可删除客户");
+        }
         Customer customer = fetchCustomer(uid);
         customerRepository.delete(customer);
     }

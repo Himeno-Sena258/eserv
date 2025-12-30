@@ -53,13 +53,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
             Claims claims = jwtService.parseClaims(token);
             String role = claims.get("role", String.class);
-            String method = request.getMethod();
-            if (!"GET".equalsIgnoreCase(method)) {
-                if (!"admin".equals(role)) {
-                    forbidden(response);
-                    return;
-                }
-            }
+            String username = claims.getSubject();
+            request.setAttribute("currentRole", role);
+            request.setAttribute("currentUsername", username);
         } catch (Exception ex) {
             unauthorized(response);
             return;
@@ -73,9 +69,4 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         response.getWriter().write("{\"message\":\"无效的令牌\"}");
     }
 
-    private void forbidden(HttpServletResponse response) throws IOException {
-        response.setStatus(HttpStatus.FORBIDDEN.value());
-        response.setContentType("application/json");
-        response.getWriter().write("{\"message\":\"权限不足\"}");
-    }
 }
