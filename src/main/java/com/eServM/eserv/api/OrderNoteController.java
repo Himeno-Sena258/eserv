@@ -3,6 +3,7 @@ package com.eServM.eserv.api;
 import com.eServM.eserv.dto.OrderNoteRequest;
 import com.eServM.eserv.dto.OrderNoteResponse;
 import com.eServM.eserv.service.OrderNoteService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -29,28 +30,38 @@ public class OrderNoteController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderNoteResponse create(@Valid @RequestBody OrderNoteRequest request) {
-        return orderNoteService.create(request);
+    public OrderNoteResponse create(HttpServletRequest httpRequest, @Valid @RequestBody OrderNoteRequest request) {
+        String role = (String) httpRequest.getAttribute("currentRole");
+        String username = (String) httpRequest.getAttribute("currentUsername");
+        return orderNoteService.create(role, username, request);
     }
 
     @GetMapping
-    public List<OrderNoteResponse> findAll(@RequestParam(required = false) String orderUid) {
-        return orderNoteService.findAll(orderUid);
+    public List<OrderNoteResponse> findAll(HttpServletRequest httpRequest, @RequestParam(required = false) String orderUid) {
+        String role = (String) httpRequest.getAttribute("currentRole");
+        String username = (String) httpRequest.getAttribute("currentUsername");
+        return orderNoteService.findAll(role, username, orderUid);
     }
 
     @GetMapping("/{uid}")
-    public OrderNoteResponse findOne(@PathVariable String uid) {
-        return orderNoteService.findByUid(uid);
+    public OrderNoteResponse findOne(HttpServletRequest httpRequest, @PathVariable String uid) {
+        String role = (String) httpRequest.getAttribute("currentRole");
+        String username = (String) httpRequest.getAttribute("currentUsername");
+        return orderNoteService.findByUid(role, username, uid);
     }
 
     @PutMapping("/{uid}")
-    public OrderNoteResponse update(@PathVariable String uid, @Valid @RequestBody OrderNoteRequest request) {
-        return orderNoteService.update(uid, request);
+    public OrderNoteResponse update(HttpServletRequest httpRequest, @PathVariable String uid, @Valid @RequestBody OrderNoteRequest request) {
+        String role = (String) httpRequest.getAttribute("currentRole");
+        String username = (String) httpRequest.getAttribute("currentUsername");
+        return orderNoteService.update(role, username, uid, request);
     }
 
     @DeleteMapping("/{uid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String uid) {
-        orderNoteService.delete(uid);
+    public void delete(HttpServletRequest httpRequest, @PathVariable String uid) {
+        String role = (String) httpRequest.getAttribute("currentRole");
+        String username = (String) httpRequest.getAttribute("currentUsername");
+        orderNoteService.delete(role, username, uid);
     }
 }

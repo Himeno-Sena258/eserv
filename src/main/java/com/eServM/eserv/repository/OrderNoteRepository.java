@@ -14,4 +14,7 @@ public interface OrderNoteRepository extends JpaRepository<OrderNote, UUID> {
 
     @Query("select n from OrderNote n where n.order.uid = :orderUid")
     List<OrderNote> findByOrderUid(@Param("orderUid") UUID orderUid);
+
+    @Query("select n from OrderNote n where n.order.customer.user.username = :username")
+    List<OrderNote> findByOwnerUsername(@Param("username") String username);
 }
