@@ -1,5 +1,6 @@
 package com.eServM.eserv.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,6 +51,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 unauthorized(response);
                 return;
             }
+            Claims claims = jwtService.parseClaims(token);
+            String role = claims.get("role", String.class);
+            String method = request.getMethod();
+            if (!"GET".equalsIgnoreCase(method)) {
+                if (!"admin".equals(role)) {
+                    forbidden(response);
+                    return;
+                }
+            }
         } catch (Exception ex) {
             unauthorized(response);
             return;
@@ -61,5 +71,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType("application/json");
         response.getWriter().write("{\"message\":\"无效的令牌\"}");
+    }
+
+    private void forbidden(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType("application/json");
+        response.getWriter().write("{\"message\":\"权限不足\"}");
     }
 }

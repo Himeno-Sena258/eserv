@@ -97,6 +97,27 @@ class CustomerApiTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void userRoleCannotWriteEntities() throws Exception {
+        String username = "userA";
+        String password = "passA";
+        mockMvc.perform(post("/api/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isCreated());
+        String loginResp = mockMvc.perform(post("/api/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String token = loginResp.substring(loginResp.indexOf(":\"") + 2, loginResp.lastIndexOf("\""));
+        mockMvc.perform(post("/api/customers")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CustomerRequest("u", "c"))))
+                .andExpect(status().isForbidden());
+    }
+
     private CustomerResponse createCustomer(String token, String name, String contact) throws Exception {
         String json = mockMvc.perform(post("/api/customers")
                 .header("Authorization", "Bearer " + token)
